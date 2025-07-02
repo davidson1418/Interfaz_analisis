@@ -67,15 +67,17 @@ def abrir_principal():
 
         lbl_resultado.configure(text=f"Número de árboles: {resumen['num_arboles']}\nÁrea cultivada: {resumen['area_cultivada']:.2f} ha\nProducción anual: {resumen['produccion']:.2f} ton\nFertilizantes: {resumen['fertilizantes']}")
 
-        def ver_grafico_edad():
+        def ver_grafico_edad(preview=True):
             fig = px.histogram(resultados, x='Edad promedio (años)', nbins=10, title='Distribución de edades')
             fig.write_image("grafico_edad.png")
-            mostrar_imagen("grafico_edad.png", "Gráfico de Edades")
+            if preview:
+                mostrar_imagen("grafico_edad.png", "Gráfico de Edades")
 
-        def ver_grafico_fertilizantes():
+        def ver_grafico_fertilizantes(preview=True):
             fig = px.pie(resultados, names='Uso de fertilizantes', title='Uso de fertilizantes')
             fig.write_image("grafico_fertilizantes.png")
-            mostrar_imagen("grafico_fertilizantes.png", "Gráfico de Fertilizantes")
+            if preview:
+                mostrar_imagen("grafico_fertilizantes.png", "Gráfico de Fertilizantes")
 
         def ver_mapa():
             mapa = folium.Map(location=[-16.27, -72.15], zoom_start=12)
@@ -88,6 +90,10 @@ def abrir_principal():
             os.system("wkhtmltoimage mapa.html mapa.png")
 
         def generar_pdf():
+            # Generar gráficos sin mostrar ventanas
+            ver_grafico_edad(preview=False)
+            ver_grafico_fertilizantes(preview=False)
+
             pdf = FPDF()
             pdf.add_page()
             pdf.set_font('Arial', 'B', 14)
@@ -116,10 +122,9 @@ def abrir_principal():
                 pdf.cell(60, 10, str(parc[2]), 1)
                 pdf.ln()
 
-            if os.path.exists("grafico_edad.png"):
-                pdf.image("grafico_edad.png", w=100)
-            if os.path.exists("grafico_fertilizantes.png"):
-                pdf.image("grafico_fertilizantes.png", w=100)
+            # Insertar siempre los gráficos generados
+            pdf.image("grafico_edad.png", w=100)
+            pdf.image("grafico_fertilizantes.png", w=100)
             if os.path.exists("mapa.png"):
                 pdf.image("mapa.png", w=180)
 
