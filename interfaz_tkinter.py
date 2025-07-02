@@ -43,16 +43,22 @@ def login():
 
 
 def abrir_principal():
+    resultados = pd.DataFrame()
+    resumen = {}
+    especie = ""
+    variedad = ""
+
     def actualizar_variedades(event=None):
-        especie = cmb_especie.get()
-        if especie == "Todas":
+        esp = cmb_especie.get()
+        if esp == "Todas":
             variedades = ["Todas"] + sorted(df['Variedad'].dropna().unique())
         else:
-            variedades = ["Todas"] + variedades_por_especie.get(especie, [])
+            variedades = ["Todas"] + variedades_por_especie.get(esp, [])
         cmb_variedad.configure(values=variedades)
         cmb_variedad.set("Todas")
 
     def consultar():
+        nonlocal resultados, resumen, especie, variedad
         especie = cmb_especie.get()
         variedad = cmb_variedad.get()
         resultados = df.copy()
@@ -85,107 +91,107 @@ def abrir_principal():
         )
         lbl_resultado.configure(text=texto_resultado)
 
-def ver_grafico_edad(preview=True):
-    fig = px.histogram(
-        resultados,
-        x='Edad promedio (años)',
-        nbins=10,
-        title='Distribución de edades'
-    )
-    fig.write_image("grafico_edad.png")
-    if preview:
-        mostrar_imagen("grafico_edad.png", "Gráfico de Edades")
+    def ver_grafico_edad(preview=True):
+        fig = px.histogram(
+            resultados,
+            x='Edad promedio (años)',
+            nbins=10,
+            title='Distribución de edades'
+        )
+        fig.write_image("grafico_edad.png")
+        if preview:
+            mostrar_imagen("grafico_edad.png", "Gráfico de Edades")
 
 
-def ver_grafico_fertilizantes(preview=True):
-    fig = px.pie(
-        resultados,
-        names='Uso de fertilizantes',
-        title='Uso de fertilizantes'
-    )
-    fig.write_image("grafico_fertilizantes.png")
-    if preview:
-        mostrar_imagen("grafico_fertilizantes.png", "Gráfico de Fertilizantes")
+    def ver_grafico_fertilizantes(preview=True):
+        fig = px.pie(
+            resultados,
+            names='Uso de fertilizantes',
+            title='Uso de fertilizantes'
+        )
+        fig.write_image("grafico_fertilizantes.png")
+        if preview:
+            mostrar_imagen("grafico_fertilizantes.png", "Gráfico de Fertilizantes")
 
 
-        def ver_mapa():
-            mapa = folium.Map(location=[-16.27, -72.15], zoom_start=12)
-            for _, row in resultados.iterrows():
-                if row['Latitud'] != 0 and row['Longitud'] != 0:
-                    folium.Marker(
-                        [row['Latitud'], row['Longitud']],
-                        popup=(
-                            f"{row['ID Parcela']} - "
-                            f"{row['Especie cultivada']} - "
-                            f"{row['Variedad']}"
-                        ),
-                    ).add_to(mapa)
-            mapa.save("mapa.html")
-            webbrowser.open("mapa.html")
-            # Generar imagen del mapa para el PDF
-            os.system("wkhtmltoimage mapa.html mapa.png")
+    def ver_mapa():
+        mapa = folium.Map(location=[-16.27, -72.15], zoom_start=12)
+        for _, row in resultados.iterrows():
+            if row['Latitud'] != 0 and row['Longitud'] != 0:
+                folium.Marker(
+                    [row['Latitud'], row['Longitud']],
+                    popup=(
+                        f"{row['ID Parcela']} - "
+                        f"{row['Especie cultivada']} - "
+                        f"{row['Variedad']}"
+                    ),
+                ).add_to(mapa)
+        mapa.save("mapa.html")
+        webbrowser.open("mapa.html")
+        # Generar imagen del mapa para el PDF
+        os.system("wkhtmltoimage mapa.html mapa.png")
 
-        def generar_pdf():
-            # Generar gráficos sin mostrar ventanas
-            ver_grafico_edad(preview=False)
-            ver_grafico_fertilizantes(preview=False)
+    def generar_pdf():
+        # Generar gráficos sin mostrar ventanas
+        ver_grafico_edad(preview=False)
+        ver_grafico_fertilizantes(preview=False)
 
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.set_font('Arial', 'B', 14)
-            pdf.cell(0, 10, 'Reporte de Parcelas', ln=1)
-            pdf.set_font('Arial', '', 12)
-            pdf.cell(0, 10, f'Especie: {especie}', ln=1)
-            pdf.cell(0, 10, f'Variedad: {variedad}', ln=1)
-            pdf.cell(
-                0,
-                10,
-                f'Número de árboles: {resumen["num_arboles"]}',
-                ln=1,
-            )
-            pdf.cell(
-                0,
-                10,
-                f'Área cultivada: {resumen["area_cultivada"]:.2f} ha',
-                ln=1,
-            )
-            pdf.cell(
-                0,
-                10,
-                f'Producción anual: {resumen["produccion"]:.2f} ton',
-                ln=1,
-            )
-            pdf.cell(0, 10, 'Fertilizantes:', ln=1)
-            for k, v in resumen['fertilizantes'].items():
-                pdf.cell(0, 10, f'{k}: {v}', ln=1)
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font('Arial', 'B', 14)
+        pdf.cell(0, 10, 'Reporte de Parcelas', ln=1)
+        pdf.set_font('Arial', '', 12)
+        pdf.cell(0, 10, f'Especie: {especie}', ln=1)
+        pdf.cell(0, 10, f'Variedad: {variedad}', ln=1)
+        pdf.cell(
+            0,
+            10,
+            f'Número de árboles: {resumen["num_arboles"]}',
+            ln=1,
+        )
+        pdf.cell(
+            0,
+            10,
+            f'Área cultivada: {resumen["area_cultivada"]:.2f} ha',
+            ln=1,
+        )
+        pdf.cell(
+            0,
+            10,
+            f'Producción anual: {resumen["produccion"]:.2f} ton',
+            ln=1,
+        )
+        pdf.cell(0, 10, 'Fertilizantes:', ln=1)
+        for k, v in resumen['fertilizantes'].items():
+            pdf.cell(0, 10, f'{k}: {v}', ln=1)
 
-            pdf.ln(5)
-            pdf.set_font('Arial', 'B', 12)
-            pdf.cell(0, 10, 'Parcelas:', ln=1)
-            pdf.set_font('Arial', '', 10)
-            pdf.cell(60, 10, 'ID Parcela', 1)
-            pdf.cell(60, 10, 'Latitud', 1)
-            pdf.cell(60, 10, 'Longitud', 1)
+        pdf.ln(5)
+        pdf.set_font('Arial', 'B', 12)
+        pdf.cell(0, 10, 'Parcelas:', ln=1)
+        pdf.set_font('Arial', '', 10)
+        pdf.cell(60, 10, 'ID Parcela', 1)
+        pdf.cell(60, 10, 'Latitud', 1)
+        pdf.cell(60, 10, 'Longitud', 1)
+        pdf.ln()
+        for parc in resumen['parcelas']:
+            pdf.cell(60, 10, str(parc[0]), 1)
+            pdf.cell(60, 10, str(parc[1]), 1)
+            pdf.cell(60, 10, str(parc[2]), 1)
             pdf.ln()
-            for parc in resumen['parcelas']:
-                pdf.cell(60, 10, str(parc[0]), 1)
-                pdf.cell(60, 10, str(parc[1]), 1)
-                pdf.cell(60, 10, str(parc[2]), 1)
-                pdf.ln()
 
-            # Insertar siempre los gráficos generados
-            pdf.image("grafico_edad.png", w=100)
-            pdf.image("grafico_fertilizantes.png", w=100)
-            if os.path.exists("mapa.png"):
-                pdf.image("mapa.png", w=180)
+        # Insertar siempre los gráficos generados
+        pdf.image("grafico_edad.png", w=100)
+        pdf.image("grafico_fertilizantes.png", w=100)
+        if os.path.exists("mapa.png"):
+            pdf.image("mapa.png", w=180)
 
-            pdf.output("reporte.pdf")
-            os.startfile("reporte.pdf")
+        pdf.output("reporte.pdf")
+        os.startfile("reporte.pdf")
 
-        btn_grafico_edad.configure(command=ver_grafico_edad)
-        btn_grafico_fertilizantes.configure(command=ver_grafico_fertilizantes)
-        btn_mapa.configure(command=ver_mapa)
-        btn_pdf.configure(command=generar_pdf)
+    btn_grafico_edad.configure(command=ver_grafico_edad)
+    btn_grafico_fertilizantes.configure(command=ver_grafico_fertilizantes)
+    btn_mapa.configure(command=ver_mapa)
+    btn_pdf.configure(command=generar_pdf)
 
     def mostrar_imagen(path, titulo):
         ventana = ctk.CTkToplevel()
