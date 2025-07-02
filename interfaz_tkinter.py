@@ -85,27 +85,28 @@ def abrir_principal():
         )
         lbl_resultado.configure(text=texto_resultado)
 
-        def ver_grafico_edad():
-            fig = px.histogram(
-                resultados,
-                x='Edad promedio (años)',
-                nbins=10,
-                title='Distribución de edades'
-            )
-            fig.write_image("grafico_edad.png")
-            mostrar_imagen("grafico_edad.png", "Gráfico de Edades")
+def ver_grafico_edad(preview=True):
+    fig = px.histogram(
+        resultados,
+        x='Edad promedio (años)',
+        nbins=10,
+        title='Distribución de edades'
+    )
+    fig.write_image("grafico_edad.png")
+    if preview:
+        mostrar_imagen("grafico_edad.png", "Gráfico de Edades")
 
-        def ver_grafico_fertilizantes():
-            fig = px.pie(
-                resultados,
-                names='Uso de fertilizantes',
-                title='Uso de fertilizantes'
-            )
-            fig.write_image("grafico_fertilizantes.png")
-            mostrar_imagen(
-                "grafico_fertilizantes.png",
-                "Gráfico de Fertilizantes"
-            )
+
+def ver_grafico_fertilizantes(preview=True):
+    fig = px.pie(
+        resultados,
+        names='Uso de fertilizantes',
+        title='Uso de fertilizantes'
+    )
+    fig.write_image("grafico_fertilizantes.png")
+    if preview:
+        mostrar_imagen("grafico_fertilizantes.png", "Gráfico de Fertilizantes")
+
 
         def ver_mapa():
             mapa = folium.Map(location=[-16.27, -72.15], zoom_start=12)
@@ -125,6 +126,10 @@ def abrir_principal():
             os.system("wkhtmltoimage mapa.html mapa.png")
 
         def generar_pdf():
+            # Generar gráficos sin mostrar ventanas
+            ver_grafico_edad(preview=False)
+            ver_grafico_fertilizantes(preview=False)
+
             pdf = FPDF()
             pdf.add_page()
             pdf.set_font('Arial', 'B', 14)
@@ -168,10 +173,9 @@ def abrir_principal():
                 pdf.cell(60, 10, str(parc[2]), 1)
                 pdf.ln()
 
-            if os.path.exists("grafico_edad.png"):
-                pdf.image("grafico_edad.png", w=100)
-            if os.path.exists("grafico_fertilizantes.png"):
-                pdf.image("grafico_fertilizantes.png", w=100)
+            # Insertar siempre los gráficos generados
+            pdf.image("grafico_edad.png", w=100)
+            pdf.image("grafico_fertilizantes.png", w=100)
             if os.path.exists("mapa.png"):
                 pdf.image("mapa.png", w=180)
 
