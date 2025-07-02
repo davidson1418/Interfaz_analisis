@@ -1,0 +1,6 @@
+customtkinter
+folium
+pandas
+plotly
+fpdf
+pillow
