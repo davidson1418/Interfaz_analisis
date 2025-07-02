@@ -16,8 +16,17 @@ usuarios = {"admin": "1234", "usuario": "clave"}
 
 try:
     df = pd.read_csv("simulacion.csv")
+    especies = sorted(df['Especie cultivada'].dropna().unique())
+    variedades_por_especie = {
+        esp: sorted(
+            df[df['Especie cultivada'] == esp]['Variedad'].dropna().unique()
+        )
+        for esp in especies
+    }
 except FileNotFoundError:
-    messagebox.showerror("Error", "El archivo 'simulacion.csv' no se encuentra.")
+    messagebox.showerror(
+        "Error", "El archivo 'simulacion.csv' no se encuentra."
+    )
     exit()
 
 def login():
@@ -30,12 +39,12 @@ def login():
         messagebox.showerror("Acceso denegado", "Usuario o clave incorrectos.")
 
 def abrir_principal():
-    def actualizar_variedades(event):
+    def actualizar_variedades(event=None):
         especie = cmb_especie.get()
         if especie == "Todas":
             variedades = ["Todas"] + sorted(df['Variedad'].dropna().unique())
         else:
-            variedades = ["Todas"] + sorted(df[df['Especie cultivada'] == especie]['Variedad'].dropna().unique())
+            variedades = ["Todas"] + variedades_por_especie.get(especie, [])
         cmb_variedad.configure(values=variedades)
         cmb_variedad.set("Todas")
 
@@ -138,7 +147,7 @@ def abrir_principal():
 
     ctk.CTkLabel(app, text="Consulta de Cultivos", font=("Arial", 24)).pack(pady=10)
 
-    cmb_especie = ctk.CTkComboBox(app, values=["Todas"] + sorted(df['Especie cultivada'].dropna().unique()), width=250)
+    cmb_especie = ctk.CTkComboBox(app, values=["Todas"] + especies, width=250)
     cmb_especie.set("Todas")
     cmb_especie.pack(pady=5)
     cmb_especie.bind("<<ComboboxSelected>>", actualizar_variedades)
@@ -146,6 +155,7 @@ def abrir_principal():
     cmb_variedad = ctk.CTkComboBox(app, values=["Todas"], width=250)
     cmb_variedad.set("Todas")
     cmb_variedad.pack(pady=5)
+    actualizar_variedades()
 
     ctk.CTkButton(app, text="Consultar", command=consultar).pack(pady=10)
 
