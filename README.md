@@ -2,6 +2,13 @@
 interfaz para analizar censo de arboles frutales
 📦 Carpeta de distribución: ConsultaCultivosApp
 
+## Instalación
+Para ejecutar el código fuente en Python instala las dependencias con:
+```bash
+pip install -r requirements.txt
+```
+El paquete `kaleido` es necesario para que `fig.write_image` exporte los gráficos correctamente.
+
 Contenidos de la carpeta:
 
 - interfaz_tkinter.exe → El archivo ejecutable de la aplicación.
