@@ -29,6 +29,7 @@ except FileNotFoundError:
     )
     exit()
 
+
 def login():
     usuario = entry_usuario.get()
     clave = entry_clave.get()
@@ -36,7 +37,10 @@ def login():
         login_window.destroy()
         abrir_principal()
     else:
-        messagebox.showerror("Acceso denegado", "Usuario o clave incorrectos.")
+        messagebox.showerror(
+            "Acceso denegado", "Usuario o clave incorrectos."
+        )
+
 
 def abrir_principal():
     def actualizar_variedades(event=None):
@@ -61,27 +65,60 @@ def abrir_principal():
             'num_arboles': int(resultados['Número de árboles'].sum()),
             'area_cultivada': resultados['Área cultivada (ha)'].sum(),
             'produccion': resultados['Producción anual (toneladas)'].sum(),
-            'fertilizantes': resultados['Uso de fertilizantes'].value_counts().to_dict(),
-            'parcelas': resultados[['ID Parcela', 'Latitud', 'Longitud']].dropna().values.tolist()
+            'fertilizantes': (
+                resultados['Uso de fertilizantes']
+                .value_counts()
+                .to_dict()
+            ),
+            'parcelas': (
+                resultados[['ID Parcela', 'Latitud', 'Longitud']]
+                .dropna()
+                .values.tolist()
+            ),
         }
 
-        lbl_resultado.configure(text=f"Número de árboles: {resumen['num_arboles']}\nÁrea cultivada: {resumen['area_cultivada']:.2f} ha\nProducción anual: {resumen['produccion']:.2f} ton\nFertilizantes: {resumen['fertilizantes']}")
+        texto_resultado = (
+            f"Número de árboles: {resumen['num_arboles']}\n"
+            f"Área cultivada: {resumen['area_cultivada']:.2f} ha\n"
+            f"Producción anual: {resumen['produccion']:.2f} ton\n"
+            f"Fertilizantes: {resumen['fertilizantes']}"
+        )
+        lbl_resultado.configure(text=texto_resultado)
 
         def ver_grafico_edad():
-            fig = px.histogram(resultados, x='Edad promedio (años)', nbins=10, title='Distribución de edades')
+            fig = px.histogram(
+                resultados,
+                x='Edad promedio (años)',
+                nbins=10,
+                title='Distribución de edades'
+            )
             fig.write_image("grafico_edad.png")
             mostrar_imagen("grafico_edad.png", "Gráfico de Edades")
 
         def ver_grafico_fertilizantes():
-            fig = px.pie(resultados, names='Uso de fertilizantes', title='Uso de fertilizantes')
+            fig = px.pie(
+                resultados,
+                names='Uso de fertilizantes',
+                title='Uso de fertilizantes'
+            )
             fig.write_image("grafico_fertilizantes.png")
-            mostrar_imagen("grafico_fertilizantes.png", "Gráfico de Fertilizantes")
+            mostrar_imagen(
+                "grafico_fertilizantes.png",
+                "Gráfico de Fertilizantes"
+            )
 
         def ver_mapa():
             mapa = folium.Map(location=[-16.27, -72.15], zoom_start=12)
             for _, row in resultados.iterrows():
                 if row['Latitud'] != 0 and row['Longitud'] != 0:
-                    folium.Marker([row['Latitud'], row['Longitud']], popup=f"{row['ID Parcela']} - {row['Especie cultivada']} - {row['Variedad']}").add_to(mapa)
+                    folium.Marker(
+                        [row['Latitud'], row['Longitud']],
+                        popup=(
+                            f"{row['ID Parcela']} - "
+                            f"{row['Especie cultivada']} - "
+                            f"{row['Variedad']}"
+                        ),
+                    ).add_to(mapa)
             mapa.save("mapa.html")
             webbrowser.open("mapa.html")
             # Generar imagen del mapa para el PDF
@@ -95,9 +132,24 @@ def abrir_principal():
             pdf.set_font('Arial', '', 12)
             pdf.cell(0, 10, f'Especie: {especie}', ln=1)
             pdf.cell(0, 10, f'Variedad: {variedad}', ln=1)
-            pdf.cell(0, 10, f'Número de árboles: {resumen["num_arboles"]}', ln=1)
-            pdf.cell(0, 10, f'Área cultivada: {resumen["area_cultivada"]:.2f} ha', ln=1)
-            pdf.cell(0, 10, f'Producción anual: {resumen["produccion"]:.2f} ton', ln=1)
+            pdf.cell(
+                0,
+                10,
+                f'Número de árboles: {resumen["num_arboles"]}',
+                ln=1,
+            )
+            pdf.cell(
+                0,
+                10,
+                f'Área cultivada: {resumen["area_cultivada"]:.2f} ha',
+                ln=1,
+            )
+            pdf.cell(
+                0,
+                10,
+                f'Producción anual: {resumen["produccion"]:.2f} ton',
+                ln=1,
+            )
             pdf.cell(0, 10, 'Fertilizantes:', ln=1)
             for k, v in resumen['fertilizantes'].items():
                 pdf.cell(0, 10, f'{k}: {v}', ln=1)
@@ -145,7 +197,11 @@ def abrir_principal():
     app.title("Consulta de Cultivos - Modern UI")
     app.geometry("700x600")
 
-    ctk.CTkLabel(app, text="Consulta de Cultivos", font=("Arial", 24)).pack(pady=10)
+    ctk.CTkLabel(
+        app,
+        text="Consulta de Cultivos",
+        font=("Arial", 24),
+    ).pack(pady=10)
 
     cmb_especie = ctk.CTkComboBox(app, values=["Todas"] + especies, width=250)
     cmb_especie.set("Todas")
@@ -159,13 +215,21 @@ def abrir_principal():
 
     ctk.CTkButton(app, text="Consultar", command=consultar).pack(pady=10)
 
-    lbl_resultado = ctk.CTkLabel(app, text="Resultados aparecerán aquí", wraplength=600, justify="left")
+    lbl_resultado = ctk.CTkLabel(
+        app,
+        text="Resultados aparecerán aquí",
+        wraplength=600,
+        justify="left",
+    )
     lbl_resultado.pack(pady=10)
 
     btn_grafico_edad = ctk.CTkButton(app, text="Ver gráfico de edades")
     btn_grafico_edad.pack(pady=5)
 
-    btn_grafico_fertilizantes = ctk.CTkButton(app, text="Ver gráfico de fertilizantes")
+    btn_grafico_fertilizantes = ctk.CTkButton(
+        app,
+        text="Ver gráfico de fertilizantes",
+    )
     btn_grafico_fertilizantes.pack(pady=5)
 
     btn_mapa = ctk.CTkButton(app, text="Ver mapa de parcelas")
@@ -175,6 +239,7 @@ def abrir_principal():
     btn_pdf.pack(pady=10)
 
     app.mainloop()
+
 
 # Login UI
 login_window = ctk.CTk()
