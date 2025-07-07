@@ -1,269 +1,236 @@
+import tkinter as tk
 import customtkinter as ctk
 import pandas as pd
-import plotly.express as px
+from tkinter import messagebox
+from PIL import Image, ImageTk
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from fpdf import FPDF
 import folium
-import os
 import webbrowser
-from PIL import Image, ImageTk
-from tkinter import messagebox
+import os
 
-# Configuración de la app en modo oscuro y moderno
+# Configuración de estilo
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
 
-usuarios = {"admin": "1234", "usuario": "clave"}
+# Credenciales de prueba
+auth_users = {"admin": "1234", "usuario": "clave"}
 
-try:
-    df = pd.read_csv("simulacion.csv")
-    especies = sorted(df['Especie cultivada'].dropna().unique())
-    variedades_por_especie = {
-        esp: sorted(
-            df[df['Especie cultivada'] == esp]['Variedad'].dropna().unique()
-        )
-        for esp in especies
-    }
-except FileNotFoundError:
-    messagebox.showerror(
-        "Error", "El archivo 'simulacion.csv' no se encuentra."
-    )
-    exit()
+# Splash de carga
+def show_splash():
+    splash = tk.Tk()
+    splash.overrideredirect(True)
+    splash.geometry("400x400+450+150")
+    splash.configure(bg="black")
+    try:
+        img = Image.open("logo_autodema.png").resize((250,250))
+        tkimg = ImageTk.PhotoImage(img)
+        lbl = tk.Label(splash, image=tkimg, bg="black")
+        lbl.image = tkimg
+        lbl.pack(pady=20)
+    except:
+        pass
+    lbl_text = tk.Label(splash, text="Cargando aplicación...", fg="white", bg="black", font=("Arial",14))
+    lbl_text.pack()
+    splash.after(3000, splash.destroy)
+    splash.mainloop()
 
+class App:
+    def __init__(self, csv_path="simulacion.csv"):
+        # Carga y validación de datos
+        try:
+            self.df = pd.read_csv(csv_path, encoding='latin-1')
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo leer '{csv_path}': {e}")
+            return
+        cols = ['Especie cultivada','Variedad','Edad promedio (años)',
+                'Uso de fertilizantes','Latitud','Longitud','Altitud (msnm)',
+                'Area cultivada (ha)','Produccion anual (toneladas)','ID Parcela']
+        missing = [c for c in cols if c not in self.df.columns]
+        if missing:
+            messagebox.showerror("Error", f"Faltan columnas: {missing}")
+            return
+        self.especies = sorted(self.df['Especie cultivada'].dropna().unique())
+        show_splash()
+        self.show_login()
 
-def login():
-    usuario = entry_usuario.get()
-    clave = entry_clave.get()
-    if usuario in usuarios and usuarios[usuario] == clave:
-        login_window.destroy()
-        abrir_principal()
-    else:
-        messagebox.showerror(
-            "Acceso denegado", "Usuario o clave incorrectos."
-        )
+    def show_login(self):
+        win = ctk.CTk()
+        win.title("Login")
+        win.geometry("300x200")
+        ctk.CTkLabel(win, text="Usuario:").pack(pady=(20,5))
+        self.user = ctk.CTkEntry(win)
+        self.user.pack(pady=5)
+        ctk.CTkLabel(win, text="Clave:").pack(pady=5)
+        self.pwd = ctk.CTkEntry(win, show="*")
+        self.pwd.pack(pady=5)
+        ctk.CTkButton(win, text="Ingresar", command=lambda:self.check_login(win)).pack(pady=20)
+        win.mainloop()
 
-
-def abrir_principal():
-    resultados = pd.DataFrame()
-    resumen = {}
-    especie = ""
-    variedad = ""
-
-    def actualizar_variedades(event=None):
-        esp = cmb_especie.get()
-        if esp == "Todas":
-            variedades = ["Todas"] + sorted(df['Variedad'].dropna().unique())
+    def check_login(self, win):
+        if auth_users.get(self.user.get()) == self.pwd.get():
+            win.destroy()
+            self.show_main()
         else:
-            variedades = ["Todas"] + variedades_por_especie.get(esp, [])
-        cmb_variedad.configure(values=variedades)
-        cmb_variedad.set("Todas")
+            messagebox.showerror("Acceso denegado", "Usuario o clave incorrectos.")
 
-    def consultar():
-        nonlocal resultados, resumen, especie, variedad
-        especie = cmb_especie.get()
-        variedad = cmb_variedad.get()
-        resultados = df.copy()
-        if especie != "Todas":
-            resultados = resultados[resultados['Especie cultivada'] == especie]
-        if variedad != "Todas":
-            resultados = resultados[resultados['Variedad'] == variedad]
+    def show_main(self):
+        self.main = ctk.CTk()
+        self.main.title("Consulta de Cultivos")
+        self.main.geometry("800x800")
+        # Combobox especie
+        ctk.CTkLabel(self.main, text="Seleccione especie:").pack(pady=(20,5))
+        self.cmb_e = ctk.CTkComboBox(self.main, values=["Todas"]+self.especies, command=self.update_vars)
+        self.cmb_e.set("Todas")
+        self.cmb_e.pack(pady=5)
+        # Combobox variedad
+        ctk.CTkLabel(self.main, text="Seleccione variedad:").pack(pady=(10,5))
+        allv = sorted(self.df['Variedad'].dropna().unique())
+        self.cmb_v = ctk.CTkComboBox(self.main, values=["Todas"]+allv)
+        self.cmb_v.set("Todas")
+        self.cmb_v.pack(pady=5)
+        # Botones
+        ctk.CTkButton(self.main, text="Consulta", command=self.mostrar_consulta).pack(pady=10)
+        ops = [("Ver Edad",self.grafico_edad), ("Ver Fertilizantes",self.grafico_fertilizantes),
+               ("Ver Area/Produccion",self.datos_area), ("Ver Mapa",self.ver_mapa),
+               ("Crear PDF",self.crear_pdf)]
+        for txt, fn in ops:
+            ctk.CTkButton(self.main, text=txt, command=fn).pack(pady=5)
+        self.lbl_info = ctk.CTkLabel(self.main, text="", anchor='w', justify='left')
+        self.lbl_info.pack(pady=10,padx=20,fill='both')
+        self.main.mainloop()
 
-        resumen = {
-            'num_arboles': int(resultados['Número de árboles'].sum()),
-            'area_cultivada': resultados['Área cultivada (ha)'].sum(),
-            'produccion': resultados['Producción anual (toneladas)'].sum(),
-            'fertilizantes': (
-                resultados['Uso de fertilizantes']
-                .value_counts()
-                .to_dict()
-            ),
-            'parcelas': (
-                resultados[['ID Parcela', 'Latitud', 'Longitud']]
-                .dropna()
-                .values.tolist()
-            ),
-        }
+    def update_vars(self, esp):
+        if esp=="Todas":
+            vals = sorted(self.df['Variedad'].dropna().unique())
+        else:
+            vals = sorted(self.df.loc[self.df['Especie cultivada']==esp,'Variedad'].dropna().unique())
+        self.cmb_v.configure(values=["Todas"]+vals)
+        self.cmb_v.set("Todas")
 
-        texto_resultado = (
-            f"Número de árboles: {resumen['num_arboles']}\n"
-            f"Área cultivada: {resumen['area_cultivada']:.2f} ha\n"
-            f"Producción anual: {resumen['produccion']:.2f} ton\n"
-            f"Fertilizantes: {resumen['fertilizantes']}"
-        )
-        lbl_resultado.configure(text=texto_resultado)
+    def filtro(self):
+        df = self.df.copy()
+        e,v = self.cmb_e.get(), self.cmb_v.get()
+        if e!="Todas": df = df[df['Especie cultivada']==e]
+        if v!="Todas": df = df[df['Variedad']==v]
+        self.df_consulta = df
+        return df
 
-    def ver_grafico_edad(preview=True):
-        fig = px.histogram(
-            resultados,
-            x='Edad promedio (años)',
-            nbins=10,
-            title='Distribución de edades'
-        )
-        fig.write_image("grafico_edad.png")
-        if preview:
-            mostrar_imagen("grafico_edad.png", "Gráfico de Edades")
+    def show_matplotlib_plot(self, fig, title):
+        win = ctk.CTkToplevel()
+        win.title(title)
+        canvas = FigureCanvasTkAgg(fig, master=win)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill='both', expand=True)
 
+    def mostrar_consulta(self):
+        df = self.filtro()
+        if df.empty:
+            self.lbl_info.configure(text="Sin datos.")
+            return
+        # Gráfico de barras area por parcela
+        fig = Figure(figsize=(6,4))
+        ax = fig.add_subplot(111)
+        ax.bar(df['ID Parcela'], df['Area cultivada (ha)'], color='skyblue')
+        ax.set_title('Area cultivada por parcela')
+        ax.set_xlabel('ID Parcela')
+        ax.set_ylabel('Area (ha)')
+        fig.tight_layout()
+        fig.savefig('consulta.png')
+        self.show_matplotlib_plot(fig, 'Grafico Consulta')
+        # Resumen
+        area = df['Area cultivada (ha)'].sum()
+        prod = df['Produccion anual (toneladas)'].sum()
+        fert = df['Uso de fertilizantes'].value_counts().to_dict()
+        txt = f"Hectareas cultivadas: {area:.2f} ha\n"+f"Produccion anual: {prod:.2f} ton\n"+f"Fertilizantes usados: {fert}"
+        self.lbl_info.configure(text=txt)
 
-    def ver_grafico_fertilizantes(preview=True):
-        fig = px.pie(
-            resultados,
-            names='Uso de fertilizantes',
-            title='Uso de fertilizantes'
-        )
-        fig.write_image("grafico_fertilizantes.png")
-        if preview:
-            mostrar_imagen("grafico_fertilizantes.png", "Gráfico de Fertilizantes")
+    def grafico_edad(self):
+        df = self.filtro()
+        if df.empty:
+            messagebox.showinfo("Info","Sin datos de edad.")
+            return
+        fig = Figure(figsize=(6,4))
+        ax = fig.add_subplot(111)
+        ax.hist(df['Edad promedio (años)'].dropna(), bins=10, color='lightgreen', edgecolor='black')
+        ax.set_title('Distribucion de edades')
+        ax.set_xlabel('Edad (años)')
+        ax.set_ylabel('Frecuencia')
+        fig.tight_layout()
+        fig.savefig('edad.png')
+        self.show_matplotlib_plot(fig, 'Grafico Edad')
 
+    def grafico_fertilizantes(self):
+        df = self.filtro()
+        if df.empty:
+            messagebox.showinfo("Info","Sin datos de fertilizantes.")
+            return
+        cnt = df['Uso de fertilizantes'].value_counts()
+        fig = Figure(figsize=(6,4))
+        ax = fig.add_subplot(111)
+        ax.pie(cnt.values, labels=cnt.index, autopct='%1.1f%%')
+        ax.set_title('Uso de fertilizantes')
+        fig.tight_layout()
+        fig.savefig('fert.png')
+        self.show_matplotlib_plot(fig, 'Grafico Fertilizantes')
 
-    def ver_mapa():
-        mapa = folium.Map(location=[-16.27, -72.15], zoom_start=12)
-        for _, row in resultados.iterrows():
-            if row['Latitud'] != 0 and row['Longitud'] != 0:
-                folium.Marker(
-                    [row['Latitud'], row['Longitud']],
-                    popup=(
-                        f"{row['ID Parcela']} - "
-                        f"{row['Especie cultivada']} - "
-                        f"{row['Variedad']}"
-                    ),
-                ).add_to(mapa)
-        mapa.save("mapa.html")
-        webbrowser.open("mapa.html")
-        # Generar imagen del mapa para el PDF
-        os.system("wkhtmltoimage mapa.html mapa.png")
+    def datos_area(self):
+        df = self.filtro()
+        if df.empty:
+            messagebox.showinfo("Info","Sin datos area/produccion.")
+            return
+        area = df['Area cultivada (ha)'].sum()
+        prod = df['Produccion anual (toneladas)'].sum()
+        fig = Figure(figsize=(6,4))
+        ax = fig.add_subplot(111)
+        ax.bar(['Area (ha)','Produccion (t)'], [area, prod], color=['orange','purple'])
+        ax.set_title('Area vs Produccion')
+        ax.set_ylabel('Valor')
+        fig.tight_layout()
+        fig.savefig('area.png')
+        self.show_matplotlib_plot(fig, 'Grafico Area vs Produccion')
 
-    def generar_pdf():
-        # Generar gráficos sin mostrar ventanas
-        ver_grafico_edad(preview=False)
-        ver_grafico_fertilizantes(preview=False)
+    def ver_mapa(self):
+        df = self.filtro()
+        mapa = folium.Map(location=[-16.27,-72.15], zoom_start=12)
+        for _,r in df.iterrows():
+            folium.Marker([r['Latitud'],r['Longitud']], popup=f"{r['ID Parcela']} - {r['Especie cultivada']}").add_to(mapa)
+        mapa.save('mapa.html')
+        webbrowser.open('mapa.html')
+        os.system('wkhtmltoimage mapa.html mapa.png')
+        img = Image.open('mapa.png')
+        tkimg = ImageTk.PhotoImage(img.resize((600,400)))
+        win = ctk.CTkToplevel()
+        win.title('Mapa Zona')
+        lbl = ctk.CTkLabel(win, image=tkimg, text='')
+        lbl.image = tkimg
+        lbl.pack(padx=10, pady=10)
 
+    def crear_pdf(self):
+        df = getattr(self,'df_consulta',pd.DataFrame())
         pdf = FPDF()
         pdf.add_page()
-        pdf.set_font('Arial', 'B', 14)
-        pdf.cell(0, 10, 'Reporte de Parcelas', ln=1)
-        pdf.set_font('Arial', '', 12)
-        pdf.cell(0, 10, f'Especie: {especie}', ln=1)
-        pdf.cell(0, 10, f'Variedad: {variedad}', ln=1)
-        pdf.cell(
-            0,
-            10,
-            f'Número de árboles: {resumen["num_arboles"]}',
-            ln=1,
-        )
-        pdf.cell(
-            0,
-            10,
-            f'Área cultivada: {resumen["area_cultivada"]:.2f} ha',
-            ln=1,
-        )
-        pdf.cell(
-            0,
-            10,
-            f'Producción anual: {resumen["produccion"]:.2f} ton',
-            ln=1,
-        )
-        pdf.cell(0, 10, 'Fertilizantes:', ln=1)
-        for k, v in resumen['fertilizantes'].items():
-            pdf.cell(0, 10, f'{k}: {v}', ln=1)
+        pdf.set_font('Arial','B',14)
+        pdf.cell(0,10,'Reporte Consolidado',ln=1)
+        pdf.set_font('Arial','',12)
+        pdf.cell(0,8,f"Especie: {self.cmb_e.get()}, Variedad: {self.cmb_v.get()}",ln=1)
+        # Grafico consulta
+        if os.path.exists('consulta.png'): pdf.ln(5); pdf.image('consulta.png',w=160)
+        # Tabla parcelas
+        df_tab = df[['ID Parcela','Latitud','Longitud','Altitud (msnm)']].dropna()
+        if not df_tab.empty:
+            pdf.ln(5); pdf.set_font('Arial','B',12)
+            for col in ['ID Parcela','Latitud','Longitud','Altitud (msnm)']: pdf.cell(40,8,col,1)
+            pdf.ln(); pdf.set_font('Arial','',10)
+            for _,row in df_tab.iterrows():
+                pdf.cell(40,6,str(row['ID Parcela']),1); pdf.cell(40,6,f"{row['Latitud']:.6f}",1)
+                pdf.cell(40,6,f"{row['Longitud']:.6f}",1); pdf.cell(40,6,str(row['Altitud (msnm)']),1); pdf.ln()
+        # Otras imagenes
+        for img in ['edad.png','fert.png','area.png','mapa.png']:
+            if os.path.exists(img): pdf.ln(5); pdf.image(img,w=160)
+        pdf.output('reporte_consolidado.pdf')
+        webbrowser.open('reporte_consolidado.pdf')
 
-        pdf.ln(5)
-        pdf.set_font('Arial', 'B', 12)
-        pdf.cell(0, 10, 'Parcelas:', ln=1)
-        pdf.set_font('Arial', '', 10)
-        pdf.cell(60, 10, 'ID Parcela', 1)
-        pdf.cell(60, 10, 'Latitud', 1)
-        pdf.cell(60, 10, 'Longitud', 1)
-        pdf.ln()
-        for parc in resumen['parcelas']:
-            pdf.cell(60, 10, str(parc[0]), 1)
-            pdf.cell(60, 10, str(parc[1]), 1)
-            pdf.cell(60, 10, str(parc[2]), 1)
-            pdf.ln()
-
-        # Insertar siempre los gráficos generados
-        pdf.image("grafico_edad.png", w=100)
-        pdf.image("grafico_fertilizantes.png", w=100)
-        if os.path.exists("mapa.png"):
-            pdf.image("mapa.png", w=180)
-
-        pdf.output("reporte.pdf")
-        os.startfile("reporte.pdf")
-
-    btn_grafico_edad.configure(command=ver_grafico_edad)
-    btn_grafico_fertilizantes.configure(command=ver_grafico_fertilizantes)
-    btn_mapa.configure(command=ver_mapa)
-    btn_pdf.configure(command=generar_pdf)
-
-    def mostrar_imagen(path, titulo):
-        ventana = ctk.CTkToplevel()
-        ventana.title(titulo)
-        img = Image.open(path)
-        img = img.resize((600, 400))
-        img_tk = ImageTk.PhotoImage(img)
-        label = ctk.CTkLabel(ventana, image=img_tk, text="")
-        label.image = img_tk
-        label.pack(padx=10, pady=10)
-
-    app = ctk.CTk()
-    app.title("Consulta de Cultivos - Modern UI")
-    app.geometry("700x600")
-
-    ctk.CTkLabel(
-        app,
-        text="Consulta de Cultivos",
-        font=("Arial", 24),
-    ).pack(pady=10)
-
-    cmb_especie = ctk.CTkComboBox(app, values=["Todas"] + especies, width=250)
-    cmb_especie.set("Todas")
-    cmb_especie.pack(pady=5)
-    cmb_especie.bind("<<ComboboxSelected>>", actualizar_variedades)
-
-    cmb_variedad = ctk.CTkComboBox(app, values=["Todas"], width=250)
-    cmb_variedad.set("Todas")
-    cmb_variedad.pack(pady=5)
-    actualizar_variedades()
-
-    ctk.CTkButton(app, text="Consultar", command=consultar).pack(pady=10)
-
-    lbl_resultado = ctk.CTkLabel(
-        app,
-        text="Resultados aparecerán aquí",
-        wraplength=600,
-        justify="left",
-    )
-    lbl_resultado.pack(pady=10)
-
-    btn_grafico_edad = ctk.CTkButton(app, text="Ver gráfico de edades")
-    btn_grafico_edad.pack(pady=5)
-
-    btn_grafico_fertilizantes = ctk.CTkButton(
-        app,
-        text="Ver gráfico de fertilizantes",
-    )
-    btn_grafico_fertilizantes.pack(pady=5)
-
-    btn_mapa = ctk.CTkButton(app, text="Ver mapa de parcelas")
-    btn_mapa.pack(pady=5)
-
-    btn_pdf = ctk.CTkButton(app, text="Generar PDF")
-    btn_pdf.pack(pady=10)
-
-    app.mainloop()
-
-
-# Login UI
-login_window = ctk.CTk()
-login_window.title("Login - Consulta de Cultivos")
-login_window.geometry("300x220")
-
-ctk.CTkLabel(login_window, text="Usuario:").pack(pady=5)
-entry_usuario = ctk.CTkEntry(login_window)
-entry_usuario.pack(pady=5)
-
-ctk.CTkLabel(login_window, text="Clave:").pack(pady=5)
-entry_clave = ctk.CTkEntry(login_window, show="*")
-entry_clave.pack(pady=5)
-
-ctk.CTkButton(login_window, text="Iniciar sesión", command=login).pack(pady=15)
-
-login_window.mainloop()
+if __name__=='__main__':
+    App()
