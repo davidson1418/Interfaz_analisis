@@ -7,7 +7,7 @@ Para ejecutar el código fuente en Python instala las dependencias con:
 ```bash
 pip install -r requirements.txt
 ```
-El paquete `kaleido` es necesario para que `fig.write_image` exporte los gráficos correctamente.
+Los gráficos se generan con la biblioteca `matplotlib`, incluida en las dependencias.
 
 Contenidos de la carpeta:
 
