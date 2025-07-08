@@ -9,6 +9,7 @@ from fpdf import FPDF
 import folium
 import webbrowser
 import os
+import subprocess
 
 # Configuración de estilo
 ctk.set_appearance_mode("Dark")
@@ -198,7 +199,16 @@ class App:
             folium.Marker([r['Latitud'],r['Longitud']], popup=f"{r['ID Parcela']} - {r['Especie cultivada']}").add_to(mapa)
         mapa.save('mapa.html')
         webbrowser.open('mapa.html')
-        os.system('wkhtmltoimage mapa.html mapa.png')
+        try:
+            subprocess.run(['wkhtmltoimage', 'mapa.html', 'mapa.png'], check=True)
+        except FileNotFoundError:
+            messagebox.showwarning('wkhtmltoimage',
+                                   'wkhtmltoimage no est\xC3\xA1 instalado. El mapa no se export\xC3\xB3 a imagen.')
+            return
+        except subprocess.CalledProcessError:
+            messagebox.showwarning('wkhtmltoimage',
+                                   'No se pudo convertir mapa.html a imagen.')
+            return
         img = Image.open('mapa.png')
         tkimg = ImageTk.PhotoImage(img.resize((600,400)))
         win = ctk.CTkToplevel()
