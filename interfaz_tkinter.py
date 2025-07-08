@@ -20,6 +20,7 @@ auth_users = {"admin": "1234", "usuario": "clave"}
 
 # Splash de carga
 def show_splash():
+    """Display a temporary splash screen while the app loads."""
     splash = tk.Tk()
     splash.overrideredirect(True)
     splash.geometry("400x400+450+150")
@@ -39,6 +40,7 @@ def show_splash():
 
 class App:
     def __init__(self, csv_path="simulacion.csv"):
+        """Load data from *csv_path* and launch the login window."""
         # Carga y validación de datos
         try:
             self.df = pd.read_csv(csv_path, encoding='latin-1')
@@ -57,6 +59,7 @@ class App:
         self.show_login()
 
     def show_login(self):
+        """Display the login form for the user."""
         win = ctk.CTk()
         win.title("Login")
         win.geometry("300x200")
@@ -70,6 +73,7 @@ class App:
         win.mainloop()
 
     def check_login(self, win):
+        """Validate credentials and open the main window if correct."""
         if auth_users.get(self.user.get()) == self.pwd.get():
             win.destroy()
             self.show_main()
@@ -77,6 +81,7 @@ class App:
             messagebox.showerror("Acceso denegado", "Usuario o clave incorrectos.")
 
     def show_main(self):
+        """Create the main interface used to filter and visualize data."""
         self.main = ctk.CTk()
         self.main.title("Consulta de Cultivos")
         self.main.geometry("800x800")
@@ -103,6 +108,7 @@ class App:
         self.main.mainloop()
 
     def update_vars(self, esp):
+        """Update variety options when the species combobox changes."""
         if esp=="Todas":
             vals = sorted(self.df['Variedad'].dropna().unique())
         else:
@@ -111,6 +117,7 @@ class App:
         self.cmb_v.set("Todas")
 
     def filtro(self):
+        """Return the DataFrame filtered by the current selections."""
         df = self.df.copy()
         e,v = self.cmb_e.get(), self.cmb_v.get()
         if e!="Todas": df = df[df['Especie cultivada']==e]
@@ -119,6 +126,7 @@ class App:
         return df
 
     def show_matplotlib_plot(self, fig, title):
+        """Display *fig* in a pop-up window with *title*."""
         win = ctk.CTkToplevel()
         win.title(title)
         canvas = FigureCanvasTkAgg(fig, master=win)
@@ -126,6 +134,7 @@ class App:
         canvas.get_tk_widget().pack(fill='both', expand=True)
 
     def mostrar_consulta(self):
+        """Generate summary charts and text for the filtered records."""
         df = self.filtro()
         if df.empty:
             self.lbl_info.configure(text="Sin datos.")
@@ -148,6 +157,7 @@ class App:
         self.lbl_info.configure(text=txt)
 
     def grafico_edad(self):
+        """Show a histogram of tree ages for the filtered data."""
         df = self.filtro()
         if df.empty:
             messagebox.showinfo("Info","Sin datos de edad.")
@@ -163,6 +173,7 @@ class App:
         self.show_matplotlib_plot(fig, 'Grafico Edad')
 
     def grafico_fertilizantes(self):
+        """Display a pie chart of fertilizer usage."""
         df = self.filtro()
         if df.empty:
             messagebox.showinfo("Info","Sin datos de fertilizantes.")
@@ -177,6 +188,7 @@ class App:
         self.show_matplotlib_plot(fig, 'Grafico Fertilizantes')
 
     def datos_area(self):
+        """Plot total cultivated area versus annual production."""
         df = self.filtro()
         if df.empty:
             messagebox.showinfo("Info","Sin datos area/produccion.")
@@ -193,6 +205,7 @@ class App:
         self.show_matplotlib_plot(fig, 'Grafico Area vs Produccion')
 
     def ver_mapa(self):
+        """Open an interactive map showing plot locations."""
         df = self.filtro()
         mapa = folium.Map(location=[-16.27,-72.15], zoom_start=12)
         for _,r in df.iterrows():
@@ -218,6 +231,7 @@ class App:
         lbl.pack(padx=10, pady=10)
 
     def crear_pdf(self):
+        """Generate a consolidated PDF report of the current query."""
         df = getattr(self,'df_consulta',pd.DataFrame())
         pdf = FPDF()
         pdf.add_page()
